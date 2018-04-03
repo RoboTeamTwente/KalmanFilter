@@ -115,6 +115,8 @@ void EKF(){
       //************************//
       // innovation covariance  //
       //************************//
+
+      //calculate H*cx_pred
       float s1[2][4]={0};
       for(int i=0;i<2;i++){
         for(int j=0;j<4;j++){
@@ -124,6 +126,7 @@ void EKF(){
         }
       }
 
+      //calculate (H*cx_pred)*H'
       for(int i=0;i<2;i++){
         for(int j=0;j<2;j++){
           S[i][j]=cn[i][j];
@@ -136,6 +139,8 @@ void EKF(){
       //*********************//
       // Kalman Gain Matrix  //
       //*********************//
+
+      //calculate cx_pred*H'
       float k1[4][2]={0};
       for(int i=0;i<4;i++){
         for(int j=0;j<2;j++){
@@ -147,6 +152,7 @@ void EKF(){
       float index=1/(S[0][0]*S[1][1]-S[0][1]*S[1][0]);
       float s_inv[2][2]={{index*S[1][1],-index*S[0][1]},{-index*S[1][0],index*S[0][0]}};
 
+      //calculate (cx_pred*H')*s^(-1)
       for(int i=0;i<4;i++){
         for(int j=0;j<2;j++){
           for(int k=0;k<2;k++){
@@ -163,6 +169,7 @@ void EKF(){
       //need to be changed for all the nodes in the list
       float zk[2][1]={{head_vis->vis.x_vis},{head_vis->vis.y_vis}};
       float temp1[2][1]={0},temp2[2][1]={0};
+      //calculate zk-H*x_pred
       for(int i=0;i<2;i++){
         for(int j=0;j<1;j++){
           for(int k=0;k<4;k++){
@@ -173,6 +180,7 @@ void EKF(){
       }
 
       float temp3[4][1]={0};
+      //calculate x_pred+K*(zk-H*x_pred)
       for(int i=0;i<4;i++){
         for(int j=0;j<1;j++){
           for(int k=0;k<2;k++){
@@ -186,6 +194,7 @@ void EKF(){
     //*****************************//
     // update covariance estimate  //
     //*****************************//
+    //calculate K*S
     float temp4[4][2]={0};
     for(int i=0;i<4;i++){
       for(int j=0;j<2;j++){
@@ -195,6 +204,7 @@ void EKF(){
       }
     }
 
+    //calculate cx_pred-K*S*K'
     float temp5[4][4]={0};
     for(int i=0;i<4;i++){
       for(int j=0;j<4;j++){
@@ -207,9 +217,14 @@ void EKF(){
 
     }//end if
 
+
+    //************************//
+    // prediction             //
+    //************************//
     float u[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
     //x_pred =F*x_upd+delt_xs*gfun(uk)//F(4,4),
-    float gfun[4][1]={{0},{0},{cos(u[2][1])*u[0][1]-sin(u[2][1])*u[1][1]},{cos(u[2][1])*u[1][1]+sin(u[2][1])*u[0][1]}};
+    float c=cos(u[2][0]),s=sin(u[2][0]);
+    float gfun[4][1]={{0},{0},{c*u[0][0]-s*u[1][0]},{c*u[1][0]+s*u[0][0]}};
     for(int i=0;i<4;i++){
       for(int j=0;j<1;j++){
         for(int k=0;k<4;k++){
@@ -219,6 +234,46 @@ void EKF(){
       }
     }
 
+    float G[4][3]={{0,0,0},{0,0,0},{c,-s,-u[0][0]*s-u[1][0]*c},{s,c,u[0][0]*c-u[1][0]*s}};
+    float temp_cx[4][4]={0};
+    //calculate F*cx_upd
+    for(int i=0;i<4;i++){
+      for(int j=0;j<4;j++){
+        for(int k=0;k<4;k++){
+          temp_cx[i][j]+=F[i][k]*cx_upd[k][j];
+        }
+      }
+    }
+
+    //calculate G*cu
+    float temp_G[4][3]={0};
+    for(int i=0;i<4;i++){
+      for(int j=0;j<3;j++){
+        for(int k=0;k<3;k++){
+          temp_G[i][j]+=G[i][k]*cu[k][j];
+        }
+      }
+    }
+
+    float cx_update_temp[4][4]={0};
+    //calculate (F*cx_upd)*F'
+    for(int i=0;i<4;i++){
+      for(int j=0;j<4;j++){
+        for(int k=0;k<4;k++){
+          cx_update_temp[i][j]+=temp_cx[i][k]*F[j][k];
+        }
+      }
+    }
+
+    float G_cu_temp[4][4]={0};
+    for(int i=0;i<4;i++){
+      for(int j=0;j<4;j++){
+        for(int k=0;k<3;k++){
+          G_cu_temp[i][j]+=temp_G[i][k]*G[j][k];
+        }
+        cx_pred[i][j]=cx_update_temp[i][j]+G_cu_temp[i][j]+cw[i][j];
+      }
+    }
   //}//end for loop
 
 }
