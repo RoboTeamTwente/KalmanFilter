@@ -18,10 +18,11 @@ y_vis = data_vis[:,1]-data_vis[0,1]
 a_vis = data_vis[:,2]-data_vis[0,2]
 t_vis = np.arange(len(data_vis))/f_vis
 
-u=[[u_xs],[v_xs],[a_xs]]
 f_cam,f_xs=50,100
+u=(np.vstack((u_xs,v_xs,a_xs)))
+z=(np.vstack((x_vis,y_vis)))
 
-# print(data_xs.shape,data_xs2.shape)
+# print(u.shape,u_xs.shape)
 #####################
 # define variance   #
 #####################
@@ -41,23 +42,35 @@ cx_pred = np.diag([1.0,1.0,0.1,0.1])
 
 delay = 0.08
 N_ahead=(int) (delay/(1/f_cam))
-for k in range(1+N_ahead):
-    print()
 
+for k in range(1+N_ahead,len(x_vis)):
+    zk=z[:,k]
+    if(np.isnan(zk[1])):
+        x_upd=x_pred
+        cx_upd=cx_pred
+    else:
+        S=np.dot(np.dot(H,cx_pred),H.transpose())+cn
+        K=np.dot(np.dot(cx_pred,H.transpose()),np.linalg.inv(S))
+        x_upd=x_pred+np.dot(K,(zk-np.dot(H,x_pred)))
+        cx_upd=cx_pred-np.dot(np.dot(K,S),K.transpose())
+
+        uk=u[:,k-N_ahead]
+        
 #####################
 #    figure plot    #
 #####################
-fig = plt.figure()
-plt.subplot(1,2,1)
-plt.plot(t_vis,x_vis,t_vis,y_vis)
-plt.title('vision')
-plt.xlabel('time/us')
-plt.ylabel('position/m')
-# plt.show()
 
-plt.subplot(1,2,2)
-plt.plot(t_xs,v_xs,t_xs,u_xs)
-plt.title('xsens')
-plt.xlabel('time/us')
-plt.ylabel('acceleration(m^2/s)')
-plt.show()
+# fig = plt.figure()
+# plt.subplot(1,2,1)
+# plt.plot(t_vis,x_vis,t_vis,y_vis)
+# plt.title('vision')
+# plt.xlabel('time/us')
+# plt.ylabel('position/m')
+# # plt.show()
+#
+# plt.subplot(1,2,2)
+# plt.plot(t_xs,v_xs,t_xs,u_xs)
+# plt.title('xsens')
+# plt.xlabel('time/us')
+# plt.ylabel('acceleration(m^2/s)')
+# plt.show()
