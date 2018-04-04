@@ -16,13 +16,17 @@
 void readVisionTxt(NodeVis *head_vis){
   FILE *myfile_vis;
 	float x_vis,y_vis,a_vis;
-	struct vision vis;
+	struct vision vis,vis_init;
 	myfile_vis = fopen("visionRelevantData.txt","r");
+  fscanf(myfile_vis,"%f%f%f",&x_vis,&y_vis,&a_vis);
+  vis_init.x_vis=x_vis;
+  vis_init.y_vis=y_vis;
+  vis_init.a_vis=a_vis/180*PI;
 	for(int i=0;i<100;i++){
 		fscanf(myfile_vis,"%f%f%f",&x_vis,&y_vis,&a_vis);
-		vis.x_vis=x_vis;
-		vis.y_vis=y_vis;
-		vis.a_vis=a_vis/180*PI;
+		vis.x_vis=x_vis-vis_init.x_vis;
+		vis.y_vis=y_vis-vis_init.y_vis;
+		vis.a_vis=a_vis/180*PI-vis_init.a_vis;
 		insertNodeVis(head_vis,vis);
 	}
   fclose(myfile_vis);
