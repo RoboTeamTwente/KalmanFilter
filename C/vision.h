@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define PI 3.141593
 struct vision{
   float x_vis;
   float y_vis;
@@ -52,4 +53,37 @@ int sizeVis(NodeVis *head){
     count++;
   }
   return count;
+}
+
+void readVisionTxt(NodeVis *head_vis){
+  FILE *myfile_vis;
+	float x_vis,y_vis,a_vis;
+	struct vision vis,vis_init;
+	myfile_vis = fopen("visionRelevantData.txt","r");
+  fscanf(myfile_vis,"%f%f%f",&x_vis,&y_vis,&a_vis);
+  vis_init.x_vis=x_vis;
+  vis_init.y_vis=y_vis;
+  vis_init.a_vis=a_vis/180*PI;
+	for(int i=0;i<100;i++){
+		fscanf(myfile_vis,"%f%f%f",&x_vis,&y_vis,&a_vis);
+		vis.x_vis=x_vis-vis_init.x_vis;
+		vis.y_vis=y_vis-vis_init.y_vis;
+		vis.a_vis=a_vis/180*PI-vis_init.a_vis;
+		insertNodeVis(head_vis,vis);
+	}
+  fclose(myfile_vis);
+}
+
+void writeVisionData(NodeVis *head_vis){
+	FILE *file_vis=fopen("file_vision.txt","w");
+	if(file_vis==NULL){
+		printf("error writing data to file");
+		exit(1);
+	}
+	NodeVis *current = head_vis;
+	for(int i=0;i<sizeVis(head_vis);i++){
+		fprintf(file_vis, "%.4f %.4f %.4f\n",current->vis.x_vis,current->vis.y_vis,current->vis.a_vis);
+		current=current->next;
+	}
+	fclose(file_vis);
 }

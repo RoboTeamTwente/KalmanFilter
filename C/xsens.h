@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define PI 3.141593
+
 struct xsens{
   float u_xs;
   float v_xs;
@@ -52,4 +54,34 @@ int sizeXs(NodeXs *head){
     count++;
   }
   return count;
+}
+
+void readXsensTxt(NodeXs *head_xs){
+  FILE *myfile_xs;
+  float u_xs,v_xs,a_xs;
+  struct xsens xs;
+  myfile_xs = fopen("xsensRelevantData.txt","r");
+  for(int i=0;i<200;i++){
+    fscanf(myfile_xs,"%f%f%f",&u_xs,&v_xs,&a_xs);
+    xs.u_xs=u_xs;
+    xs.v_xs=v_xs;
+    xs.a_xs=a_xs/180*PI;
+    insertNodeXs(head_xs,xs);
+  }
+  fclose(myfile_xs);
+}
+
+
+void writeXsensData(NodeXs *head_xs){
+	FILE *file_xs=fopen("file_xsens.txt","w");
+	if(file_xs==NULL){
+		printf("error writing data to file");
+		exit(1);
+	}
+	NodeXs *current = head_xs;
+	for(int i=0;i<sizeXs(head_xs);i++){
+		fprintf(file_xs, "%.4f   %.4f   %.4f\n",current->xs.u_xs,current->xs.v_xs,current->xs.a_xs);
+		current=current->next;
+	}
+	fclose(file_xs);
 }

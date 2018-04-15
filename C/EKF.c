@@ -3,7 +3,8 @@
 #include <math.h>
 #include "xsens.h"
 #include "vision.h"
-
+#include "x_pred.h"
+#include "Array.h"
 
 #define PI 3.141593
 //define the variance
@@ -13,74 +14,13 @@
 #define var_xvel 0.2*0.2 //velocity processing noise
 #define var_z 0.01*0.01  //camera noise
 
-void readVisionTxt(NodeVis *head_vis){
-  FILE *myfile_vis;
-	float x_vis,y_vis,a_vis;
-	struct vision vis,vis_init;
-	myfile_vis = fopen("visionRelevantData.txt","r");
-  fscanf(myfile_vis,"%f%f%f",&x_vis,&y_vis,&a_vis);
-  vis_init.x_vis=x_vis;
-  vis_init.y_vis=y_vis;
-  vis_init.a_vis=a_vis/180*PI;
-	for(int i=0;i<100;i++){
-		fscanf(myfile_vis,"%f%f%f",&x_vis,&y_vis,&a_vis);
-		vis.x_vis=x_vis-vis_init.x_vis;
-		vis.y_vis=y_vis-vis_init.y_vis;
-		vis.a_vis=a_vis/180*PI-vis_init.a_vis;
-		insertNodeVis(head_vis,vis);
-	}
-  fclose(myfile_vis);
-}
-
-void readXsensTxt(NodeXs *head_xs){
-  FILE *myfile_xs;
-  float u_xs,v_xs,a_xs;
-  struct xsens xs;
-  myfile_xs = fopen("xsensRelevantData.txt","r");
-  for(int i=0;i<200;i++){
-    fscanf(myfile_xs,"%f%f%f",&u_xs,&v_xs,&a_xs);
-    xs.u_xs=u_xs;
-    xs.v_xs=v_xs;
-    xs.a_xs=a_xs/180*PI;
-    insertNodeXs(head_xs,xs);
-  }
-  fclose(myfile_xs);
-}
-
-
-void writeXsensData(NodeXs *head_xs){
-	FILE *file_xs=fopen("file_xsens.txt","w");
-	if(file_xs==NULL){
-		printf("error writing data to file");
-		exit(1);
-	}
-	NodeXs *current = head_xs;
-	for(int i=0;i<sizeXs(head_xs);i++){
-		fprintf(file_xs, "%.4f   %.4f   %.4f\n",current->xs.u_xs,current->xs.v_xs,current->xs.a_xs);
-		current=current->next;
-	}
-	fclose(file_xs);
-}
-
-void writeVisionData(NodeVis *head_vis){
-	FILE *file_vis=fopen("file_vision.txt","w");
-	if(file_vis==NULL){
-		printf("error writing data to file");
-		exit(1);
-	}
-	NodeVis *current = head_vis;
-	for(int i=0;i<sizeVis(head_vis);i++){
-		fprintf(file_vis, "%.4f %.4f %.4f\n",current->vis.x_vis,current->vis.y_vis,current->vis.a_vis);
-		current=current->next;
-	}
-	fclose(file_vis);
-}
 
 
 void EKF(){
   //initilize the head of the linkedlist of xsens and vision
   NodeXs *head_xs = (NodeXs*)malloc(sizeof(NodeXs*));
   NodeVis *head_vis = (NodeVis *)malloc(sizeof(NodeVis *));
+  NodePred *head_x_pred = (NodePred*)malloc(sizeof(NodePred*));
   readVisionTxt(head_vis);
   readXsensTxt(head_xs);
 	//printVis(head_vis);
@@ -107,7 +47,7 @@ void EKF(){
     popNodeVis(&head_vis);
   }
 
-  //for(int k_index=0;k_index<sizeVis(head_vis)-N_ahead;k_index++){
+  for(int k_index=0;k_index<sizeVis(head_vis)-N_ahead;k_index++){
     if(sizeVis(head_vis)<1){
       for(int i=0;i<4;i++){
         for(int j=0;j<4;j++){
@@ -122,48 +62,26 @@ void EKF(){
 
       //calculate H*cx_pred
       float s1[2][4]={0};
-      for(int i=0;i<2;i++){
-        for(int j=0;j<4;j++){
-          for(int k=0;k<4;k++){
-            s1[i][j]+=H[i][k]*cx_pred[k][j];
-          }
-        }
-      }
-
+      ArrayMul(2,4,H,4,4,cx_pred,s1);
+      float H_tran[4][2]={0};
+      ArrayTranspose(2,4,H,H_tran);
       //calculate (H*cx_pred)*H'
-      for(int i=0;i<2;i++){
-        for(int j=0;j<2;j++){
-          S[i][j]=cn[i][j];
-          for(int k=0;k<4;k++){
-            S[i][j]+=s1[i][k]*H[j][k];
-          }
-        }
-      }
-
+      ArrayMul(2,4,s1,4,2,H_tran,S);
+      // S=H*cx_pred*H'+cn
+      ArraySum(2,2,S,cn,S);
       //*********************//
       // Kalman Gain Matrix  //
       //*********************//
 
       //calculate cx_pred*H'
       float k1[4][2]={0};
-      for(int i=0;i<4;i++){
-        for(int j=0;j<2;j++){
-          for(int k=0;k<4;k++){
-            k1[i][j]+=cx_pred[i][k]*H[j][k];
-          }
-        }
-      }
+      ArrayMul(4,4,cx_pred,4,2,H_tran,k1);
       float index=1/(S[0][0]*S[1][1]-S[0][1]*S[1][0]);
       float s_inv[2][2]={{index*S[1][1],-index*S[0][1]},{-index*S[1][0],index*S[0][0]}};
 
       //calculate (cx_pred*H')*s^(-1)
-      for(int i=0;i<4;i++){
-        for(int j=0;j<2;j++){
-          for(int k=0;k<2;k++){
-            K[i][j]+=k1[i][k]*s_inv[k][j];
-          }
-        }
-      }
+      ArrayMul(4,2,k1,2,2,s_inv,K);
+
       //end Kalman Gain Matrix
 
       //************************//
@@ -173,26 +91,16 @@ void EKF(){
       //need to be changed for all the nodes in the list
       float zk[2][1]={{head_vis->vis.x_vis},{head_vis->vis.y_vis}};
       float temp1[2][1]={0},temp2[2][1]={0};
+      // H*x_pred
+      ArrayMul(2,4,H,4,1,x_pred,temp1);
       //calculate zk-H*x_pred
-      for(int i=0;i<2;i++){
-        for(int j=0;j<1;j++){
-          for(int k=0;k<4;k++){
-            temp1[i][j]+=H[i][k]*x_pred[k][j];
-          }
-          temp2[i][j]=zk[i][j]-temp1[i][j];
-        }
-      }
+      ArraySubstract(2,1,zk,temp1,temp2);
+
 
       float temp3[4][1]={0};
       //calculate x_pred+K*(zk-H*x_pred)
-      for(int i=0;i<4;i++){
-        for(int j=0;j<1;j++){
-          for(int k=0;k<2;k++){
-            temp3[i][j]+=K[i][k]*temp2[k][j];
-          }
-          x_upd[i][j]=x_pred[i][j]+temp3[i][j];
-        }
-      }
+      ArrayMul(4,2,K,2,1,temp2,temp3);
+      ArraySum(4,1,x_pred,temp3,x_upd);
   //end state estimate
 
     //*****************************//
@@ -200,25 +108,14 @@ void EKF(){
     //*****************************//
     //calculate K*S
     float temp4[4][2]={0};
-    for(int i=0;i<4;i++){
-      for(int j=0;j<2;j++){
-        for(int k=0;k<2;k++){
-          temp4[i][j]+=K[i][k]*S[k][j];
-        }
-      }
-    }
+    ArrayMul(4,2,K,2,2,S,temp4);
 
     //calculate cx_pred-K*S*K'
+    float K_tran[2][4]={0};
+    ArrayTranspose(4,2,K,K_tran);
     float temp5[4][4]={0};
-    for(int i=0;i<4;i++){
-      for(int j=0;j<4;j++){
-        for(int k=0;k<2;k++){
-          temp5[i][j]+=temp4[i][k]*K[j][k];
-        }
-      cx_upd[i][j]=cx_pred[i][j]-temp5[i][j];
-      }
-    }
-
+    ArrayMul(4,2,temp4,2,4,K_tran,temp5);
+    ArraySubstract(4,4,cx_pred,temp5,cx_upd);
     }//end if
 
 
@@ -229,56 +126,20 @@ void EKF(){
     //x_pred =F*x_upd+delt_xs*gfun(uk)//F(4,4),
     float c=cos(u[2][0]),s=sin(u[2][0]);
     float gfun[4][1]={{0},{0},{c*u[0][0]-s*u[1][0]},{c*u[1][0]+s*u[0][0]}};
+    ArrayMul(4,4,F,4,1,x_upd,x_pred);
     for(int i=0;i<4;i++){
       for(int j=0;j<1;j++){
-        for(int k=0;k<4;k++){
-          x_pred[i][j]+=F[i][k]*x_upd[k][j];
-        }
         x_pred[i][j]+=delt_xs*gfun[i][j];
       }
     }
+    // printf("%f %f %f %f\n",
+    // head_x_pred->data.x[0][0],head_x_pred->data.x[1][0],
+    // head_x_pred->data.x[2][0],head_x_pred->data.x[3][0]);
+    insertNodePred(head_x_pred,x_pred);
 
-    float G[4][3]={{0,0,0},{0,0,0},{c,-s,-u[0][0]*s-u[1][0]*c},{s,c,u[0][0]*c-u[1][0]*s}};
-    float temp_cx[4][4]={0};
-    //calculate F*cx_upd
-    for(int i=0;i<4;i++){
-      for(int j=0;j<4;j++){
-        for(int k=0;k<4;k++){
-          temp_cx[i][j]+=F[i][k]*cx_upd[k][j];
-        }
-      }
-    }
-
-    //calculate G*cu
-    float temp_G[4][3]={0};
-    for(int i=0;i<4;i++){
-      for(int j=0;j<3;j++){
-        for(int k=0;k<3;k++){
-          temp_G[i][j]+=G[i][k]*cu[k][j];
-        }
-      }
-    }
-
-    float cx_update_temp[4][4]={0};
-    //calculate (F*cx_upd)*F'
-    for(int i=0;i<4;i++){
-      for(int j=0;j<4;j++){
-        for(int k=0;k<4;k++){
-          cx_update_temp[i][j]+=temp_cx[i][k]*F[j][k];
-        }
-      }
-    }
-
-    float G_cu_temp[4][4]={0};
-    for(int i=0;i<4;i++){
-      for(int j=0;j<4;j++){
-        for(int k=0;k<3;k++){
-          G_cu_temp[i][j]+=temp_G[i][k]*G[j][k];
-        }
-        cx_pred[i][j]=cx_update_temp[i][j]+G_cu_temp[i][j]+cw[i][j];
-      }
-    }
-  //}//end for loop
+    popNodeXs(&head_xs);
+    writePredictedData(head_x_pred);
+  }//end for loop
 
 }
 
