@@ -3,7 +3,6 @@
 #include <math.h>
 #include "xsens.h"
 #include "vision.h"
-#include "x_pred.h"
 #include "Array.h"
 
 #define PI 3.141593
@@ -20,7 +19,6 @@ void EKF(){
   //initilize the head of the linkedlist of xsens and vision
   NodeXs *head_xs = (NodeXs*)malloc(sizeof(NodeXs*));
   NodeVis *head_vis = (NodeVis *)malloc(sizeof(NodeVis *));
-  NodePred *head_x_pred = (NodePred*)malloc(sizeof(NodePred*));
   readVisionTxt(head_vis);
   readXsensTxt(head_xs);
 	//printVis(head_vis);
@@ -45,6 +43,12 @@ void EKF(){
   //delete the first N_ahead of vision
   for(int i=0;i<N_ahead;i++){
     popNodeVis(&head_vis);
+  }
+
+  FILE *file_x_pred=fopen("x_pred.txt","w");
+  if(file_x_pred==NULL){
+    printf("error writing data to file");
+    exit(1);
   }
 
   for(int k_index=0;k_index<sizeVis(head_vis)-N_ahead;k_index++){
@@ -125,22 +129,25 @@ void EKF(){
     float u[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
     //x_pred =F*x_upd+delt_xs*gfun(uk)//F(4,4),
     float c=cos(u[2][0]),s=sin(u[2][0]);
+
     float gfun[4][1]={{0},{0},{c*u[0][0]-s*u[1][0]},{c*u[1][0]+s*u[0][0]}};
     ArrayMul(4,4,F,4,1,x_upd,x_pred);
+
+
+   float data[4]={0};
     for(int i=0;i<4;i++){
       for(int j=0;j<1;j++){
-        x_pred[i][j]+=delt_xs*gfun[i][j];
+        x_pred[i][j]=delt_xs*gfun[i][j];
       }
+      data[i]=x_pred[i][0];
     }
-    // printf("%f %f %f %f\n",
-    // head_x_pred->data.x[0][0],head_x_pred->data.x[1][0],
-    // head_x_pred->data.x[2][0],head_x_pred->data.x[3][0]);
-    insertNodePred(head_x_pred,x_pred);
 
+
+    fprintf(file_x_pred, "%f %f %f %f\n",data[0],data[1],data[2],data[3] );
     popNodeXs(&head_xs);
-    writePredictedData(head_x_pred);
   }//end for loop
 
+  fclose(file_x_pred);
 }
 
 int main(){
