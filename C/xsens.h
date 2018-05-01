@@ -60,12 +60,13 @@ void readXsensTxt(NodeXs *head_xs){
   FILE *myfile_xs;
   float u_xs,v_xs,a_xs;
   struct xsens xs;
-  myfile_xs = fopen("xsensRelevantData.txt","r");
-  for(int i=0;i<200;i++){
+  myfile_xs = fopen("xsensSyncedData.txt","r");
+  for(int i=0;i<2000;i++){
     fscanf(myfile_xs,"%f%f%f",&u_xs,&v_xs,&a_xs);
     xs.u_xs=u_xs;
     xs.v_xs=v_xs;
-    xs.a_xs=a_xs/180*PI;
+    xs.a_xs=a_xs;
+    // xs.a_xs=a_xs/180*PI;
     insertNodeXs(head_xs,xs);
   }
   fclose(myfile_xs);

@@ -24,14 +24,14 @@ void EKF(){
 	//printVis(head_vis);
   //printXs(head_xs);
 
-  int f_xs=100,f_vis=50;
+  int f_xs=100;
   float delay = 0.08;
   float delt_xs = (float)1/f_xs;
   int N_ahead = (int) (delay/delt_xs);
 
   float cn[2][2]={{var_z,0},{0,var_z}};
-  float cu[3][3]={{var_a,0,0},{0,var_a,0},{0,0,var_theta}};
-  float cw[4][4]={{var_xpos,0,0,0},{0,var_xpos,0,0},{0,0,var_xvel,0},{0,0,0,var_xvel}};
+  // float cu[3][3]={{var_a,0,0},{0,var_a,0},{0,0,var_theta}};
+  // float cw[4][4]={{var_xpos,0,0,0},{0,var_xpos,0,0},{0,0,var_xvel,0},{0,0,0,var_xvel}};
   float H[2][4]={{1,0,0,0},{0,1,0,0}};
   float x_pred[4][1]={0};
   float x_upd[4][1]={0};
@@ -41,9 +41,10 @@ void EKF(){
   float K[4][2]={0};
   float F[4][4]={{1,0,delt_xs,0},{0,1,0,delt_xs},{0,0,1,0},{0,0,0,1}};
   //delete the first N_ahead of vision
-  for(int i=0;i<N_ahead;i++){
-    popNodeVis(&head_vis);
-  }
+  // for(int i=0;i<N_ahead;i++){
+  //   popNodeVis(&head_vis);
+  // }
+
 
   FILE *file_x_pred=fopen("x_pred.txt","w");
   if(file_x_pred==NULL){
@@ -51,14 +52,16 @@ void EKF(){
     exit(1);
   }
 
-  for(int k_index=0;k_index<sizeVis(head_vis)-N_ahead;k_index++){
-    if(sizeVis(head_vis)<1){
+  for(int k_index=0;k_index<sizeVis(head_vis);k_index++){
+    // if(sizeVis(head_vis)<8){
+    if(1){
       for(int i=0;i<4;i++){
         for(int j=0;j<4;j++){
           cx_upd[i][j]=cx_pred[i][j];
         }
         x_upd[i][0]=x_pred[i][0];
       }
+
     }else{
       //************************//
       // innovation covariance  //
@@ -102,9 +105,10 @@ void EKF(){
 
 
       float temp3[4][1]={0};
-      //calculate x_pred+K*(zk-H*x_pred)
+      //calculate x_upd=x_pred+K*(zk-H*x_pred)
       ArrayMul(4,2,K,2,1,temp2,temp3);
       ArraySum(4,1,x_pred,temp3,x_upd);
+      // fprintf(file_x_upd, "%f %f %f %f\n",x_upd[0],x_upd[1],x_upd[2],x_upd[3] );
   //end state estimate
 
     //*****************************//
@@ -131,13 +135,14 @@ void EKF(){
     float c=cos(u[2][0]),s=sin(u[2][0]);
 
     float gfun[4][1]={{0},{0},{c*u[0][0]-s*u[1][0]},{c*u[1][0]+s*u[0][0]}};
+    for(int i=0;i<4;i++){x_pred[i][0]=0;}
     ArrayMul(4,4,F,4,1,x_upd,x_pred);
 
 
    float data[4]={0};
     for(int i=0;i<4;i++){
       for(int j=0;j<1;j++){
-        x_pred[i][j]=delt_xs*gfun[i][j];
+        x_pred[i][j]+=delt_xs*gfun[i][j];
       }
       data[i]=x_pred[i][0];
     }
@@ -145,9 +150,11 @@ void EKF(){
 
     fprintf(file_x_pred, "%f %f %f %f\n",data[0],data[1],data[2],data[3] );
     popNodeXs(&head_xs);
+    popNodeVis(&head_vis);
   }//end for loop
 
   fclose(file_x_pred);
+  // fclose(file_x_upd);
 }
 
 int main(){
