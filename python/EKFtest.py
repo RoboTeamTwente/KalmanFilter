@@ -7,9 +7,12 @@ data_xs=np.loadtxt('xsensSyncedData.txt')
 
 vis_x = data_vis[:,0]-data_vis[0,0]
 vis_y = data_vis[:,1]-data_vis[0,1]
-xs_u = data_xs[::2,0]
-xs_v = data_xs[::2,1]
-xs_a = data_xs[::2,2]
+# xs_u = data_xs[::2,0]
+# xs_v = data_xs[::2,1]
+# xs_a = data_xs[::2,2]
+xs_u = data_xs[::,0]
+xs_v = data_xs[::,1]
+xs_a = data_xs[::,2]
 
 
 f = 100
@@ -35,7 +38,7 @@ cu = np.diag([var_a,var_a,var_theta])#covariance of acceleration
 vis = (np.column_stack((vis_x,vis_y)))
 xs = (np.column_stack((xs_u,xs_v,xs_a)))
 
-data = np.zeros((1000,4))
+data = np.zeros((2000,4))
 
 for i in range(1000):
     S = np.dot(np.dot(H,cx_pred),H.transpose())+cn
@@ -44,33 +47,44 @@ for i in range(1000):
     zk=np.array([[vis[i,0]],[vis[i,1]]])
     x_upd = x_pred + np.dot(K,(zk-np.dot(H,x_pred)))
     cx_upd = cx_pred - np.dot(np.dot(K,S),K.transpose())
-    uk=np.array([[xs[i,0]],[xs[i,1]],[xs[i,2]]])
-    # uk=xs[i,:]
+
+    uk=np.array([[xs[2*i,0]],[xs[2*i,1]],[xs[2*i,2]]])
     c,s=np.cos(uk[2]),np.sin(uk[2])
     thi,fou=delt*(uk[0]*c-uk[1]*s),delt*(uk[0]*s+uk[1]*c)
     gfun = np.array([[0],[0],[thi],[fou]])
     x_pred = np.dot(F,x_upd)+gfun
     for j in range(4):
-        data[i,j]=x_pred[j]
+        data[2*i,j]=x_pred[j]
     G=np.array([[0,0,0],[0,0,0],[c,-s,-uk[0]*s-uk[1]*c],[s,c,uk[0]*c-uk[1]*s]])
     cx_pred=np.dot(np.dot(F,cx_upd),F.transpose())+np.dot(np.dot(G,cu),G.transpose())+cw
 
-t = range(1000)
+    u=np.array([[xs[2*i+1,0]],[xs[2*i+1,1]],[xs[2*i+1,2]]])
+    c1,s1=np.cos(u[2]),np.sin(u[2])
+    t1,f1=delt*(u[0]*c1-u[1]*s1),delt*(u[0]*s1+u[1]*c1)
+    gfun1 = np.array([[0],[0],[t1],[f1]])
+    x_pred = np.dot(F,x_upd)+gfun1
+    for j in range(4):
+        data[2*i+1,j]=x_pred[j]
+    G1=np.array([[0,0,0],[0,0,0],[c1,-s1,-u[0]*s1-u[1]*c1],[s1,c1,u[0]*c1-u[1]*s1]])
+    cx_pred=np.dot(np.dot(F,cx_upd),F.transpose())+np.dot(np.dot(G1,cu),G1.transpose())+cw
+
 #####################
 #    figure plot    #
 #####################
-
+t_1000=range(1001)
+t_2000=range(2000)
 fig = plt.figure()
-plt.subplot(1,2,1)
-plt.plot(t,data[:,0],t,data[:,1])
-plt.title('position')
+plt.subplot(2,1,1)
+plt.plot(t_2000,data[:,0],t_2000,data[:,1])
+plt.title('prediction position')
 plt.xlabel('time/us')
-plt.ylabel('position/m')
+plt.ylabel('position(m)')
 # plt.show()
 
-plt.subplot(1,2,2)
-plt.plot(t,data[:,2],t,data[:,3])
-plt.title('velocity')
+plt.subplot(2,1,2)
+plt.plot(t_1000,vis_x,t_1000,vis_y)
+plt.title('camera position')
 plt.xlabel('time/us')
-plt.ylabel('velocity(m/s)')
+plt.ylabel('position(m)')
+plt.savefig('position.png')
 plt.show()
