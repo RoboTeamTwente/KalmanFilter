@@ -97,8 +97,8 @@ void EKF(){
     //***********************//
     //one step prediction    //
     //***********************//
-    float u[3][1]={{0},{0},{0}};
-    // float u[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
+    // float u[3][1]={{0},{0},{0}};
+    float u[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
     float s=sin(u[2][0]),c=cos(u[2][0]);
     float gfun[4][1]={{0},{0},{delt*(u[0][0]*c-u[1][0]*s)},{delt*(u[1][0]*c+u[0][0]*s)}};
     float temp10[4][1]={0};
@@ -123,18 +123,42 @@ void EKF(){
     ArrayMul(4,3,G,3,3,cu,temp13);
     //temp14=G*cu*G'
     ArrayMul(4,3,temp13,3,4,G_tran,temp14);
-    float temp15[4][3]={0};
     for(int i=0;i<4;i++){
       for(int j=0;j<4;j++){
         cx_pred[i][j]=temp12[i][j]+temp14[i][j]+cw[i][j];
       }
     }
-    // ArraySum(4,4,temp12,temp14,temp15);
-    // ArraySum(4,4,temp15,cw,cx_pred);
+
+    fprintf(file_x_pred, "%f %f %f %f\n",x_pred[0][0],x_pred[1][0],x_pred[2][0],x_pred[3][0] );
+    popNodeXs(&head_xs);
+    float u1[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
+    float s1=sin(u[2][0]),c1=cos(u[2][0]);
+    float gfun1[4][1]={{0},{0},{delt*(u1[0][0]*c1-u1[1][0]*s1)},{delt*(u1[1][0]*c1+u1[0][0]*s1)}};
+    float temp15[4][1]={0};
+    for(int i=0;i<4;i++){x_pred[i][0]=0;}
+    //temp10 = F*x_upd
+    ArrayMul(4,4,F,4,1,x_upd,temp15);
+    ArraySum(4,1,temp15,gfun,x_pred);
+
+    float G1[4][3]={{0,0,0},{0,0,0},{c1,-s1,-s1*u1[0][0]-u1[1][0]*c1},{s1,c1,u1[0][0]*c1-u1[1][0]*s1}};
+    float G_tran1[3][4]={0};
+    ArrayTranspose(4,3,G1,G_tran1);
+    float temp16[4][4]={0},temp17[4][4]={0};
+    ArrayMul(4,4,F,4,4,cx_upd,temp16);
+    ArrayMul(4,4,temp16,4,4,F_tran,temp17);
+    float temp18[4][3]={0},temp19[4][4]={0};
+    //temp13=G*cu
+    ArrayMul(4,3,G1,3,3,cu,temp18);
+    //temp14=G*cu*G'
+    ArrayMul(4,3,temp18,3,4,G_tran1,temp19);
+    for(int i=0;i<4;i++){
+      for(int j=0;j<4;j++){
+        cx_pred[i][j]=temp17[i][j]+temp19[i][j]+cw[i][j];
+      }
+    }
 
     fprintf(file_x_pred, "%f %f %f %f\n",x_pred[0][0],x_pred[1][0],x_pred[2][0],x_pred[3][0] );
     // // printf("xs:  %d\n",sizeXs(head_xs));
-    popNodeXs(&head_xs);
     popNodeXs(&head_xs);
     popNodeVis(&head_vis);
   }
