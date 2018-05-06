@@ -1,5 +1,5 @@
 compile the code with the following command:
-gcc -o EKF EKF.c vision.h xsens.h Array.h x_pred.h -lm
+gcc -o main main.c vision.h xsens.h Array.h x_pred.h -lm
 
 The Array.h contains Array multiplication,summation and  substraction
 
