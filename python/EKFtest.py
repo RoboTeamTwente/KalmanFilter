@@ -16,7 +16,7 @@ xs_a = data_xs[::,2]
 
 
 f = 100
-delt = 0.08
+delt = 0.01
 F = np.array([[1,0,delt,0],[0,1,0,delt],[0,0,1,0],[0,0,0,1]])
 H = np.array([[1,0,0,0],[0,1,0,0]])
 B = np.array([[0,0,delt,0],[0,0,0,delt]])

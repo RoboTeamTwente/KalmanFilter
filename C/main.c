@@ -19,7 +19,7 @@ void EKF(){
   NodeVis *head_vis = (NodeVis *)malloc(sizeof(NodeVis *));
   readVisionTxt(head_vis);
   readXsensTxt(head_xs);
-  float delt = 0.08;
+  float delt = 0.01;
   float F[4][4]={{1,0,delt,0},{0,1,0,delt},{0,0,1,0},{0,0,0,1}};
   float F_tran[4][4]={0};
   ArrayTranspose(4,4,F,F_tran);
