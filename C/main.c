@@ -46,53 +46,46 @@ void EKF(){
       //    innovation matrix  //
       //***********************//
     float S[2][2]={0};
-    float temp1[2][4]={0},temp3[2][2]={0};
-    //temp1 = H*cx_pred
-    ArrayMul(2,4,H,4,4,cx_pred,temp1);
-    //temp3=H*cx_pred*H'
-    ArrayMul(2,4,temp1,4,2,H_tran,temp3);
+    float temp1[2][2]={0};
+    //temp1 = H*cx_pred*H'
+    Array3Mul(2,4,H,4,4,cx_pred,4,2,H_tran,temp1);
     //S=H*cx_pred*H'+cn
-    ArraySum(2,2,temp3,cn,S);
+    ArraySum(2,2,temp1,cn,S);
     //***********************//
     //    Kalman gain        //
     //***********************//
     float det = 1/(S[0][0]*S[1][1]-S[0][1]*S[1][0]);
     float S_inv[2][2]={{det*S[1][1],-det*S[0][1]},{-det*S[1][0],det*S[0][0]}};
     float K[4][2]={0};
-    float temp4[4][2]={0};
-    //temp4 = cx_pred*H'
-    ArrayMul(4,4,cx_pred,4,2,H_tran,temp4);
-    //K=cx_pred*H'*S^(-1)
-    ArrayMul(4,2,temp4,2,2,S_inv,K);
 
+    //K = cx_pred*H'*S^(-1)
+    Array3Mul(4,4,cx_pred,4,2,H_tran,2,2,S_inv,K);
     //***********************//
     //    X(i|i-1)           //
     //***********************//
      float zk[2][1]={{head_vis->vis.x_vis},{head_vis->vis.y_vis}};
     // float zk[2][1]={{0},{0}};
     float x_upd[4][1]={0};
-    float temp5[2][1]={0},temp6[2][1]={0},temp7[4][1]={0};
-    //temp5 = H*x_pred
-    ArrayMul(2,4,H,4,1,x_pred,temp5);
-    //temp6 = zk-H*x_pred
-    ArraySubstract(2,1,zk,temp5,temp6);
-    //temp7 = K*(zk-H*x_pred)
-    ArrayMul(4,2,K,2,1,temp6,temp7);
+    float temp2[2][1]={0},temp3[2][1]={0},temp4[4][1]={0};
+    //temp2 = H*x_pred
+    ArrayMul(2,4,H,4,1,x_pred,temp2);
+    //temp3 = zk-H*x_pred
+    ArraySubstract(2,1,zk,temp2,temp3);
+    //temp4 = K*(zk-H*x_pred)
+    ArrayMul(4,2,K,2,1,temp3,temp4);
     //x_upd = x_pred+K*(zk-H*x_pred)
     // for(int i=0;i<4;i++){x_upd[i][0]=0;}
-    ArraySum(4,1,x_pred,temp7,x_upd);
+    ArraySum(4,1,x_pred,temp4,x_upd);
     //***********************//
     //    Cx(i|i-1)          //
     //***********************//
     float cx_upd[4][4]={0};
-    float temp8[4][2]={0},temp9[4][4]={0};
     float K_tran[2][4]={0};
     ArrayTranspose(4,2,K,K_tran);
-    //temp8=K*S
-    ArrayMul(4,2,K,2,2,S,temp8);
-    //temp9=K*S*K'
-    ArrayMul(4,2,temp8,2,4,K_tran,temp9);
-    ArraySubstract(4,4,cx_pred,temp9,cx_upd);
+    float temp5[4][4]={0};
+    //temp5=K*S*K'
+    Array3Mul(4,2,K,2,2,S,2,4,K_tran,temp5);
+    ArraySubstract(4,4,cx_pred,temp5,cx_upd);
 
     //***********************//
     //one step prediction    //
@@ -101,64 +94,105 @@ void EKF(){
     float u[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
     float s=sin(u[2][0]),c=cos(u[2][0]);
     float gfun[4][1]={{0},{0},{delt*(u[0][0]*c-u[1][0]*s)},{delt*(u[1][0]*c+u[0][0]*s)}};
-    float temp10[4][1]={0};
+    float temp6[4][1]={0};
     for(int i=0;i<4;i++){x_pred[i][0]=0;}
     //temp10 = F*x_upd
-    ArrayMul(4,4,F,4,1,x_upd,temp10);
-    ArraySum(4,1,temp10,gfun,x_pred);
+    ArrayMul(4,4,F,4,1,x_upd,temp6);
+    ArraySum(4,1,temp6,gfun,x_pred);
     //***********************//
     //   convar prediction   //
     //***********************//
     float G[4][3]={{0,0,0},{0,0,0},{c,-s,-s*u[0][0]-u[1][0]*c},{s,c,u[0][0]*c-u[1][0]*s}};
     float G_tran[3][4]={0};
     ArrayTranspose(4,3,G,G_tran);
-    float temp11[4][4]={0},temp12[4][4]={0};
-    //temp11=F*cx_upd
 
-    ArrayMul(4,4,F,4,4,cx_upd,temp11);
-    //temp12=F*cx_upd*F_tran
-    ArrayMul(4,4,temp11,4,4,F_tran,temp12);
-    float temp13[4][3]={0},temp14[4][4]={0};
-    //temp13=G*cu
-    ArrayMul(4,3,G,3,3,cu,temp13);
-    //temp14=G*cu*G'
-    ArrayMul(4,3,temp13,3,4,G_tran,temp14);
+    float temp7[4][4]={0};
+    //temp7 = F*cx_upd*F'
+    Array3Mul(4,4,F,4,4,cx_upd,4,4,F_tran,temp7);
+    float temp8[4][4]={0};
+    //temp8=G*cu*G'
+    Array3Mul(4,3,G,3,3,cu,3,4,G_tran,temp8);
     for(int i=0;i<4;i++){
       for(int j=0;j<4;j++){
-        cx_pred[i][j]=temp12[i][j]+temp14[i][j]+cw[i][j];
+        cx_pred[i][j]=temp7[i][j]+temp8[i][j]+cw[i][j];
       }
     }
-
     fprintf(file_x_pred, "%f %f %f %f\n",x_pred[0][0],x_pred[1][0],x_pred[2][0],x_pred[3][0] );
     popNodeXs(&head_xs);
+
+    float S1[2][2]={0};
+    float temp11[2][2]={0};
+    //temp11 = H*cx_pred*H'
+    Array3Mul(2,4,H,4,4,cx_pred,4,2,H_tran,temp11);
+    //S1=H*cx_pred*H'+cn
+    ArraySum(2,2,temp11,cn,S1);
+
+    //****//
+    // K  //
+    //****//
+    float det1 = 1/(S1[0][0]*S1[1][1]-S1[0][1]*S1[1][0]);
+    float S1_inv[2][2]={{det1*S1[1][1],-det1*S1[0][1]},{-det1*S1[1][0],det1*S1[0][0]}};
+    float K1[4][2]={0};
+
+    //K = cx_pred*H'*S^(-1)
+    Array3Mul(4,4,cx_pred,4,2,H_tran,2,2,S1_inv,K1);
+    //***********************//
+    //    X(i|i-1)           //
+    //***********************//
+    float temp12[2][1]={0},temp13[2][1]={0},temp14[4][1]={0};
+    //temp2 = H*x_pred
+    ArrayMul(2,4,H,4,1,x_pred,temp12);
+    //temp3 = zk-H*x_pred
+    ArraySubstract(2,1,zk,temp12,temp13);
+    //temp4 = K*(zk-H*x_pred)
+    ArrayMul(4,2,K1,2,1,temp13,temp14);
+    //x_upd = x_pred+K*(zk-H*x_pred)
+    // for(int i=0;i<4;i++){x_upd[i][0]=0;}
+    ArraySum(4,1,x_pred,temp14,x_upd);
+
+    //***********************//
+    //    Cx(i|i-1)          //
+    //***********************//
+    float K1_tran[2][4]={0};
+    ArrayTranspose(4,2,K1,K1_tran);
+    float temp15[4][4]={0};
+    //temp5=K*S*K'
+    Array3Mul(4,2,K1,2,2,S1,2,4,K1_tran,temp15);
+    ArraySubstract(4,4,cx_pred,temp15,cx_upd);
+
+    //***********************//
+    //one step prediction    //
+    //***********************//
+    // float u[3][1]={{0},{0},{0}};
     float u1[3][1]={{head_xs->xs.u_xs},{head_xs->xs.v_xs},{head_xs->xs.a_xs}};
-    float s1=sin(u[2][0]),c1=cos(u[2][0]);
+    float s1=sin(u1[2][0]),c1=cos(u1[2][0]);
     float gfun1[4][1]={{0},{0},{delt*(u1[0][0]*c1-u1[1][0]*s1)},{delt*(u1[1][0]*c1+u1[0][0]*s1)}};
-    float temp15[4][1]={0};
+    float temp16[4][1]={0};
     for(int i=0;i<4;i++){x_pred[i][0]=0;}
     //temp10 = F*x_upd
-    ArrayMul(4,4,F,4,1,x_upd,temp15);
-    ArraySum(4,1,temp15,gfun,x_pred);
+    ArrayMul(4,4,F,4,1,x_upd,temp16);
+    ArraySum(4,1,temp16,gfun1,x_pred);
 
+    //***********************//
+    //   convar prediction   //
+    //***********************//
     float G1[4][3]={{0,0,0},{0,0,0},{c1,-s1,-s1*u1[0][0]-u1[1][0]*c1},{s1,c1,u1[0][0]*c1-u1[1][0]*s1}};
-    float G_tran1[3][4]={0};
-    ArrayTranspose(4,3,G1,G_tran1);
-    float temp16[4][4]={0},temp17[4][4]={0};
-    ArrayMul(4,4,F,4,4,cx_upd,temp16);
-    ArrayMul(4,4,temp16,4,4,F_tran,temp17);
-    float temp18[4][3]={0},temp19[4][4]={0};
-    //temp13=G*cu
-    ArrayMul(4,3,G1,3,3,cu,temp18);
-    //temp14=G*cu*G'
-    ArrayMul(4,3,temp18,3,4,G_tran1,temp19);
+    float G1_tran[3][4]={0};
+    ArrayTranspose(4,3,G1,G1_tran);
+
+    float temp17[4][4]={0};
+    //temp7 = F*cx_upd*F'
+    Array3Mul(4,4,F,4,4,cx_upd,4,4,F_tran,temp17);
+    float temp18[4][4]={0};
+    //temp8=G*cu*G'
+    Array3Mul(4,3,G1,3,3,cu,3,4,G1_tran,temp18);
     for(int i=0;i<4;i++){
       for(int j=0;j<4;j++){
-        cx_pred[i][j]=temp17[i][j]+temp19[i][j]+cw[i][j];
+        cx_pred[i][j]=temp17[i][j]+temp18[i][j]+cw[i][j];
       }
     }
 
     fprintf(file_x_pred, "%f %f %f %f\n",x_pred[0][0],x_pred[1][0],x_pred[2][0],x_pred[3][0] );
-    // // printf("xs:  %d\n",sizeXs(head_xs));
     popNodeXs(&head_xs);
     popNodeVis(&head_vis);
   }
