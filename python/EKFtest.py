@@ -49,14 +49,23 @@ for i in range(1000):
     cx_upd = cx_pred - np.dot(np.dot(K,S),K.transpose())
 
     uk=np.array([[xs[2*i,0]],[xs[2*i,1]],[xs[2*i,2]]])
+    # uk=np.array([[xs[i,0]],[xs[i,1]],[xs[i,2]]])
     c,s=np.cos(uk[2]),np.sin(uk[2])
     thi,fou=delt*(uk[0]*c-uk[1]*s),delt*(uk[0]*s+uk[1]*c)
     gfun = np.array([[0],[0],[thi],[fou]])
     x_pred = np.dot(F,x_upd)+gfun
     for j in range(4):
         data[2*i,j]=x_pred[j]
+        # data[i,j]=x_pred[j]
     G=np.array([[0,0,0],[0,0,0],[c,-s,-uk[0]*s-uk[1]*c],[s,c,uk[0]*c-uk[1]*s]])
     cx_pred=np.dot(np.dot(F,cx_upd),F.transpose())+np.dot(np.dot(G,cu),G.transpose())+cw
+
+    S1 = np.dot(np.dot(H,cx_pred),H.transpose())+cn
+    K1 = np.dot(np.dot(cx_pred,H.transpose()),np.linalg.inv(S))
+    # zk = np.array([[0],[0]])
+    # zk=np.array([[vis[i,0]],[vis[i,1]]])
+    x_upd = x_pred + np.dot(K1,(zk-np.dot(H,x_pred)))
+    cx_upd = cx_pred - np.dot(np.dot(K1,S1),K1.transpose())
 
     u=np.array([[xs[2*i+1,0]],[xs[2*i+1,1]],[xs[2*i+1,2]]])
     c1,s1=np.cos(u[2]),np.sin(u[2])
@@ -71,20 +80,23 @@ for i in range(1000):
 #####################
 #    figure plot    #
 #####################
+vx,vy=np.zeros([1001]),np.zeros([1001])
+for i in range(1000):
+    vx[i]=50*(vis_x[i+1]-vis_x[i])
+    vy[i]=50*(vis_y[i+1]-vis_y[i])
 t_1000=range(1001)
 t_2000=range(2000)
 fig = plt.figure()
 plt.subplot(2,1,1)
-plt.plot(t_2000,data[:,0],t_2000,data[:,1])
-plt.title('prediction position')
-plt.xlabel('time/us')
-plt.ylabel('position(m)')
-# plt.show()
+plt.plot(t_2000,data[:,2],t_2000,data[:,3])
+# plt.title('prediction position')
+# plt.xlabel('time/us')
+# plt.ylabel('position(m)')
 
 plt.subplot(2,1,2)
-plt.plot(t_1000,vis_x,t_1000,vis_y)
-plt.title('camera position')
-plt.xlabel('time/us')
-plt.ylabel('position(m)')
-plt.savefig('position.png')
+plt.plot(t_1000,vx,t_1000,vy)
+# plt.title('camera position')
+# plt.xlabel('time/us')
+# plt.ylabel('position(m)')
+# plt.savefig('position.png')
 plt.show()
